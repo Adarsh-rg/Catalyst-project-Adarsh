@@ -15,6 +15,15 @@ import {
   Option as SortOption,
 } from '@/vibes/soul/sections/products-list-section/sorting';
 
+// =================================================================================
+// 🎓 TYPESCRIPT TIP: OPTIONAL PROPERTIES (`?`)
+// =================================================================================
+// Notice how some properties in this `interface` have a question mark `?` (like `breadcrumbs?:`).
+// This tells TypeScript: "This property is OPTIONAL. If the parent doesn't pass it, 
+// that's perfectly fine, it will just be `undefined`."
+// If a property doesn't have a `?` (like `totalCount:`), TypeScript will throw a hard error 
+// if you ever forget to pass it to the `<ProductsListSection>`. This guarantees we never 
+// ship a broken page because we forgot to pass critical data!
 interface Props {
   breadcrumbs?: Streamable<Breadcrumb[]>;
   title?: Streamable<string | null>;
@@ -45,7 +54,21 @@ interface Props {
   maxCompareLimitMessage?: Streamable<string>;
 }
 
+// =================================================================================
+// 🎓 HOW FILES CONNECT (Exporting Components)
+// =================================================================================
+//    In Stencil, you made a reusable UI chunk by creating a `.html` file in the `components/` folder.
+//    In React, a reusable UI chunk is just a function that returns JSX (HTML)!
+//    By writing `export function ProductsListSection`, we are allowing `page.tsx` 
+//    to `import { ProductsListSection }` and use it like an HTML tag: `<ProductsListSection />`.
 export function ProductsListSection({
+  // =================================================================================
+  // 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+  // =================================================================================
+  // 1. PROPS (Replacing {{context}})
+  //    In Stencil, you accessed data inside HTML like `{{category.name}}`.
+  //    In React, data is passed down explicitly as "Props" from the parent component.
+  //    Below, we destructure all the props passed into `ProductsListSection`.
   breadcrumbs: streamableBreadcrumbs,
   title = 'Products',
   totalCount,
@@ -74,10 +97,20 @@ export function ProductsListSection({
   maxItems,
   maxCompareLimitMessage,
 }: Props) {
+  // =================================================================================
+  // 2. JSX (Replacing Handlebars)
+  // =================================================================================
+  //    We return JSX, which looks like HTML but is actually JavaScript!
+  //    Instead of Handlebars `{{#if}}`, we use simple JavaScript logic like `&&` or ternary `? :`.
   return (
     <div className="group/products-list-section @container">
       <div className="mx-auto max-w-screen-2xl px-4 py-10 @xl:px-6 @xl:py-14 @4xl:px-8 @4xl:py-12">
         <div>
+          {/* 
+            `<Stream>` is a special Catalyst wrapper around React `<Suspense>`.
+            It shows the `fallback` (a UI skeleton) WHILE the `streamableBreadcrumbs` promise is fetching.
+            Once it finishes, it renders the actual Breadcrumbs component.
+          */}
           <Stream fallback={<BreadcrumbsSkeleton />} value={streamableBreadcrumbs}>
             {(breadcrumbs) =>
               breadcrumbs && breadcrumbs.length > 1 && <Breadcrumbs breadcrumbs={breadcrumbs} />
@@ -161,6 +194,11 @@ export function ProductsListSection({
           </aside>
 
           <div className="group-has-data-pending/products-list-section:animate-pulse flex-1">
+            {/* 
+              This is Component Composition! 
+              Instead of one massive HTML file, we import `<ProductList>` and pass our `products` to it.
+              Inside `<ProductList>`, it maps over the data to render `<ProductCard>` for each item. 
+            */}
             <ProductList
               compareHref={compareHref}
               compareLabel={compareLabel}

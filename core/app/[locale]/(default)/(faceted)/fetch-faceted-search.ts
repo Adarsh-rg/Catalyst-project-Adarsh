@@ -244,8 +244,19 @@ const getProductSearchResults = cache(
   },
 );
 
+// =================================================================================
+// 🎓 TYPESCRIPT TIP: ZOD UNIONS AND TRANSFORMS
+// =================================================================================
+//    When someone types in a URL like `?brand=Nike`, the value could be a string ("Nike").
+//    If they type `?brand=Nike&brand=Adidas`, it becomes an Array (["Nike", "Adidas"]).
+//    If they don't type it, it's undefined.
+//    `z.union` tells TypeScript: "This variable is ALLOWED to be any of these 3 shapes."
 const SearchParamSchema = z.union([z.string(), z.array(z.string()), z.undefined()]);
 
+//    `.transform` lets us magically rewrite the data before it gets to our code!
+//    Even if the URL only had one string (`?brand=Nike`), this code forces it into 
+//    an array (`["Nike"]`). This way, our React code down the line only ever has to 
+//    worry about handling Arrays, saving us dozens of `if` statements!
 const SearchParamToArray = SearchParamSchema.transform((value) => {
   if (Array.isArray(value)) {
     return value;
@@ -403,6 +414,12 @@ export const PublicToPrivateParams = PublicSearchParamsSchema.catchall(SearchPar
   })
   .pipe(PrivateSearchParamsSchema);
 
+// =================================================================================
+// 🎓 HOW FILES CONNECT (Exports)
+// =================================================================================
+//    By putting `export const` in front of this function, we make it "public".
+//    Any other file in the codebase (like `page.tsx`) can now `import { fetchFacetedSearch }`
+//    and use this exact function to talk to BigCommerce!
 export const fetchFacetedSearch = cache(
   // We need to make sure the reference passed into this function is the same if we want it to be memoized.
   async (

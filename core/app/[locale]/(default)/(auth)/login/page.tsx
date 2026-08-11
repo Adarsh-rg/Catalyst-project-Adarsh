@@ -1,4 +1,10 @@
 /* eslint-disable react/jsx-no-bind */
+// =================================================================================
+// 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+// =================================================================================
+// 1. In Stencil, `login.html` was rendered by the backend and a form POST would log the user in.
+//    In Next.js, this is a Server Component that renders the Login UI and passes a 
+//    bound "Server Action" to handle the secure form submission.
 import { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -41,6 +47,13 @@ export default async function Login({ params, searchParams }: Props) {
   const redirectTarget = redirectUrl.pathname + redirectUrl.search;
   const tokenErrorMessage = error === 'InvalidToken' ? t('invalidToken') : undefined;
 
+  // =================================================================================
+  // 2. COMPONENT COMPOSITION: `<SignInSection>`
+  // =================================================================================
+  //    Instead of raw HTML forms, we render a highly reusable `<SignInSection>` component.
+  //    Notice the `action={login.bind(null, { redirectTo: redirectTarget })}` prop.
+  //    We are passing a backend function (`login`) DIRECTLY into our UI component!
+  //    When the user clicks Submit, React securely calls that backend function without exposing an API endpoint.
   return (
     <>
       <ForceRefresh />

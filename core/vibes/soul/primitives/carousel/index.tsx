@@ -1,4 +1,14 @@
 /* eslint-disable valid-jsdoc */
+// =================================================================================
+// 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+// =================================================================================
+// 1. In Stencil, to make a carousel work, you loaded a jQuery plugin (like Slick Carousel)
+//    in your `theme.js` file.
+// 
+//    In React, components are rendered on the SERVER by default (no javascript in the browser).
+//    But a carousel NEEDS javascript to handle drag events and button clicks!
+//    The `'use client'` directive tells Next.js: "Send this component's Javascript to the 
+//    browser so it can be interactive."
 'use client';
 
 import { clsx } from 'clsx';
@@ -7,6 +17,13 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import * as React from 'react';
 
+// =================================================================================
+// 🎓 TYPESCRIPT TIP: Advanced Utility Types (`Parameters`, `ReturnType`)
+// =================================================================================
+// 2. What if a third-party library (like `useEmblaCarousel`) doesn't export its Types? 
+//    TypeScript can extract them automatically! 
+//    `Parameters<typeof fn>` grabs the argument types the function expects.
+//    `ReturnType<typeof fn>` grabs the shape of whatever the function returns!
 type CarouselApi = UseEmblaCarouselType[1];
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>;
 type CarouselOptions = UseCarouselParameters[0];
@@ -50,6 +67,12 @@ function Carousel({
   hideOverflow = true,
   ...rest
 }: CarouselProps) {
+  // =================================================================================
+  // 3. REACT HOOKS: useState (Replacing global variables)
+  // =================================================================================
+  //    In jQuery, you might track the carousel state by reading the DOM (`$('.slide').hasClass('active')`).
+  //    In React, you store state in Javascript using `useState`. 
+  //    Whenever `setCanScrollPrev` is called, React automatically re-renders the UI to update the button!
   const [carouselRef, api] = useEmblaCarousel(opts, plugins);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
@@ -85,6 +108,13 @@ function Carousel({
     setApi(api);
   }, [api, setApi]);
 
+  // =================================================================================
+  // 4. REACT HOOKS: useEffect (Replacing Document.Ready / Event Listeners)
+  // =================================================================================
+  //    In jQuery, you used `$(document).ready()` to attach event listeners.
+  //    In React, you use `useEffect`. This code block runs when the component mounts.
+  //    The `return () => { ... }` part is the cleanup function (it removes the event listener
+  //    when the user leaves the page to prevent memory leaks).
   useEffect(() => {
     if (!api) return;
 
@@ -122,21 +152,26 @@ function Carousel({
   );
 }
 
+// The container that holds all the carousel slides
 function CarouselContent({ className, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
+  // Grab the embla carousel ref from the Context
   const { carouselRef } = useCarousel();
 
   return (
+    // Attach the ref here so Embla knows what to scroll
     <div className="w-full" ref={carouselRef}>
       <div {...rest} className={clsx('-ml-4 flex @2xl:-ml-5', className)} />
     </div>
   );
 }
 
+// An individual slide inside the carousel
 function CarouselItem({ className, ...rest }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       {...rest}
       aria-roledescription="slide"
+      // shrink-0 and grow-0 ensure the slide doesn't stretch or compress oddly
       className={clsx('min-w-0 shrink-0 grow-0 pl-4 @2xl:pl-5', className)}
       role="group"
     />
@@ -155,6 +190,7 @@ function CarouselItem({ className, ...rest }: React.HTMLAttributes<HTMLDivElemen
  * }
  * ```
  */
+// The Next/Previous arrow buttons for the carousel
 function CarouselButtons({
   className,
   colorScheme = 'light',
@@ -166,6 +202,7 @@ function CarouselButtons({
   previousLabel?: string;
   nextLabel?: string;
 }) {
+  // Pull the scroll functions and disable states from our global Context
   const { scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel();
 
   return (
@@ -182,7 +219,9 @@ function CarouselButtons({
     >
       <button
         className="rounded-lg ring-[var(--carousel-focus,hsl(var(--primary)))] transition-colors duration-300 focus-visible:outline-0 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-25"
+        // Button is disabled when we reach the first slide
         disabled={!canScrollPrev}
+        // Calls the Embla API to scroll left
         onClick={scrollPrev}
         title={previousLabel}
       >
@@ -190,7 +229,9 @@ function CarouselButtons({
       </button>
       <button
         className="rounded-lg ring-[var(--carousel-focus,hsl(var(--primary)))] transition-colors duration-300 focus-visible:outline-0 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-25"
+        // Button is disabled when we reach the last slide
         disabled={!canScrollNext}
+        // Calls the Embla API to scroll right
         onClick={scrollNext}
         title={nextLabel}
       >
@@ -211,6 +252,12 @@ function CarouselButtons({
  * }
  * ```
  */
+// =================================================================================
+// 5. CAROUSEL SCROLLBAR (Replaces custom drag math)
+// =================================================================================
+//    In Stencil, implementing a custom scrollbar for a carousel often meant writing 
+//    complex math to track mouse drag distance and update the scrollbar width.
+//    Here, we tie an HTML `<input type="range">` directly to the Embla API's `progress`.
 function CarouselScrollbar({
   className,
   colorScheme = 'light',

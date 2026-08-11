@@ -1,5 +1,16 @@
 'use client';
 
+// =================================================================================
+// 🎓 DEEP REACT: OPTIMISTIC UI UPDATES
+// =================================================================================
+// In Stencil, when someone clicked "Increase Quantity" in the cart, you had two choices:
+// 1. Show a loading spinner, wait for the server, then re-render the page (Slow).
+// 2. Write complex jQuery to manually change the "1" to a "2" while the server worked in the background.
+//
+// In React, we use `useOptimistic`. We tell React: "When the user clicks plus, instantly 
+// show the quantity increasing. I promise the server action will catch up in a millisecond."
+// If the server fails, React automatically rolls the UI back to the true state!
+
 import { getFormProps, getInputProps, SubmissionResult, useForm } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
 import { clsx } from 'clsx';
@@ -32,6 +43,13 @@ import { ShippingForm, ShippingFormState } from './shipping-form';
 
 import { CartEmptyState } from '.';
 
+// =================================================================================
+// 🎓 TYPESCRIPT TIP: Utility Types (`Awaited`)
+// =================================================================================
+// `Awaited<State>` is a built-in TypeScript utility. 
+// If `State` is a Promise (e.g. `Promise<string>`), `Awaited` unwraps it and 
+// tells TypeScript that the actual value is just a `string`. 
+// This makes sure our Server Action payload types match perfectly!
 type Action<State, Payload> = (state: Awaited<State>, payload: Payload) => State | Promise<State>;
 
 interface CartLineIteminventoryMessages {
@@ -219,14 +237,26 @@ export function CartClient<LineItem extends CartLineItem>({
   summaryTitle,
   shipping,
 }: CartProps<LineItem>) {
+  // =================================================================================
+  // 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+  // =================================================================================
   const events = useEvents();
+
+  // 1. In Stencil, managing the cart required manual AJAX calls and handling the response.
+  //    Here, we use `useActionState`. We pass it our server-side `lineItemAction` function,
+  //    and the initial state (the cart data from the server). 
+  //    React handles the rest: tracking if it's pending (`isLineItemActionPending`),
+  //    running the action (`formAction`), and storing the response (`state`).
   const [state, formAction, isLineItemActionPending] = useActionState(lineItemAction, {
     lineItems: cart.lineItems,
     lastResult: null,
   });
 
+  // 2. We hook `@conform-to/react` into the form to handle any error messages returned 
+  //    from the server action (e.g. "Only 5 items left in stock").
   const [form] = useForm({ lastResult: state.lastResult });
 
+  // 3. If the server action returns an error, display it via a toast popup instantly.
   useEffect(() => {
     if (form.errors) {
       form.errors.forEach((error) => {
@@ -315,17 +345,29 @@ export function CartClient<LineItem extends CartLineItem>({
     };
   }, [isLineItemActionPending, lineItemActionPendingLabel]);
 
+  // =================================================================================
+  // 4. SETTING UP OPTIMISTIC UI STATE
+  // =================================================================================
+  //    In Stencil, when someone clicked "Increase Quantity" in the cart, you had two choices:
+  //    1. Show a loading spinner, wait for the server, then re-render the page (Slow).
+  //    2. Write complex jQuery to manually change the "1" to a "2" while the server worked.
+  //
+  //    In React, we use `useOptimistic`. We tell React: "When the user clicks plus, instantly 
+  //    show the quantity increasing. I promise the server action will catch up in a millisecond."
+  //    If the server fails, React automatically rolls the UI back to the true state!
   const [optimisticLineItems, setOptimisticLineItems] = useOptimistic<CartLineItem[], FormData>(
-    state.lineItems,
+    state.lineItems, // The source of truth from the server (e.g. { quantity: 1 })
     (prevState, formData) => {
+      // 5. Parse the incoming form data using Zod to understand what the user just clicked
       const submission = parseWithZod(formData, { schema: cartLineItemActionFormDataSchema });
 
       if (submission.status !== 'success') return prevState;
 
+      // 6. Instantly return a fake, updated version of the cart based on their intent
       switch (submission.value.intent) {
         case 'increment': {
           const { id } = submission.value;
-
+          // Find the item by ID and instantly increase its quantity in the UI
           return prevState.map((item) =>
             item.id === id ? { ...item, quantity: item.quantity + 1 } : item,
           );
@@ -333,7 +375,7 @@ export function CartClient<LineItem extends CartLineItem>({
 
         case 'decrement': {
           const { id } = submission.value;
-
+          // Find the item by ID and instantly decrease its quantity in the UI
           return prevState.map((item) =>
             item.id === id ? { ...item, quantity: item.quantity - 1 } : item,
           );
@@ -341,7 +383,7 @@ export function CartClient<LineItem extends CartLineItem>({
 
         case 'delete': {
           const { id } = submission.value;
-
+          // Instantly remove the item from the list entirely
           return prevState.filter((item) => item.id !== id);
         }
 
@@ -351,6 +393,12 @@ export function CartClient<LineItem extends CartLineItem>({
     },
   );
 
+  // =================================================================================
+  // 🎓 JAVASCRIPT TIP: ARRAY `.reduce()`
+  // =================================================================================
+  //    `reduce()` loops over an array and "reduces" it down to a single value.
+  //    Here, it starts a running `total` at 0. For every `item` in the cart, it adds 
+  //    that item's `quantity` to the total. The result is the total number of items in the cart!
   const optimisticQuantity = useMemo(
     () => optimisticLineItems.reduce((total, item) => total + item.quantity, 0),
     [optimisticLineItems],
@@ -465,39 +513,45 @@ export function CartClient<LineItem extends CartLineItem>({
                     {lineItem.subtitle}
                   </span>
                 </div>
-                <CounterForm
-                  action={formAction}
-                  decrementLabel={decrementLineItemLabel}
-                  deleteLabel={deleteLineItemLabel}
-                  incrementLabel={incrementLineItemLabel}
-                  lineItem={lineItem}
-                  onSubmit={(formData) => {
-                    startTransition(() => {
-                      formAction(formData);
-                      setOptimisticLineItems(formData);
+                  <CounterForm
+                    action={formAction}
+                    decrementLabel={decrementLineItemLabel}
+                    deleteLabel={deleteLineItemLabel}
+                    incrementLabel={incrementLineItemLabel}
+                    lineItem={lineItem}
+                    onSubmit={(formData) => {
+                      // =================================================================================
+                      // 2. TRIGGERING THE OPTIMISTIC UPDATE
+                      // =================================================================================
+                      // When the user clicks + / - / Trash, we wrap the form submission in `startTransition`.
+                      // 1. We fire the real server action: `formAction(formData)`.
+                      // 2. We instantly update the UI: `setOptimisticLineItems(formData)`.
+                      startTransition(() => {
+                        formAction(formData);
+                        setOptimisticLineItems(formData);
 
-                      const intent = formData.get('intent');
+                        const intent = formData.get('intent');
 
-                      if (intent === 'increment') {
-                        formData.set('quantity', '1');
+                        if (intent === 'increment') {
+                          formData.set('quantity', '1');
 
-                        events.onAddToCart?.(formData);
-                      }
+                          events.onAddToCart?.(formData);
+                        }
 
-                      if (intent === 'decrement') {
-                        formData.set('quantity', '1');
+                        if (intent === 'decrement') {
+                          formData.set('quantity', '1');
 
-                        events.onRemoveFromCart?.(formData);
-                      }
+                          events.onRemoveFromCart?.(formData);
+                        }
 
-                      if (intent === 'delete') {
-                        formData.set('quantity', lineItem.quantity.toString());
+                        if (intent === 'delete') {
+                          formData.set('quantity', lineItem.quantity.toString());
 
-                        events.onRemoveFromCart?.(formData);
-                      }
-                    });
-                  }}
-                />
+                          events.onRemoveFromCart?.(formData);
+                        }
+                      });
+                    }}
+                  />
               </div>
             </li>
           ))}
@@ -507,6 +561,13 @@ export function CartClient<LineItem extends CartLineItem>({
   );
 }
 
+// =================================================================================
+// THE COUNTER FORM (Replaces jQuery cart updates)
+// =================================================================================
+// In Stencil, the Plus/Minus buttons in the cart required custom JS event listeners 
+// bound to the DOM elements, which fired AJAX requests.
+// Here, each item in the cart is its own `<form>`. The buttons act as submit buttons 
+// with different `value` props (increment, decrement, delete).
 function CounterForm({
   lineItem,
   action,
@@ -681,6 +742,10 @@ function CounterForm({
   );
 }
 
+// =================================================================================
+// THE CHECKOUT BUTTON
+// =================================================================================
+// Handles redirecting to the BigCommerce checkout URL.
 function CheckoutButton({
   action,
   isCartUpdatePending,

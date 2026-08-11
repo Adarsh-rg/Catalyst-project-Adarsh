@@ -1,3 +1,13 @@
+// =================================================================================
+// 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+// =================================================================================
+// 1. In Stencil, if you wanted a Compare Drawer that remembered products as the user 
+//    navigated across different pages, you likely wrote custom Javascript to read/write 
+//    to `localStorage` or attached global variables to the `window` object.
+//
+//    In React, we use the Context API (`createContext`) to create "Global State".
+//    It allows any component, anywhere in the app, to read and update the list of 
+//    compared items without having to pass data down through a hundred different files.
 'use client';
 
 import * as Portal from '@radix-ui/react-portal';
@@ -19,6 +29,12 @@ import { Link } from '~/components/link';
 
 import { compareParser } from './loader';
 
+// =================================================================================
+// 🎓 TYPESCRIPT TIP: Custom Types (`type` vs `interface`)
+// =================================================================================
+// 2. In TypeScript, an `interface` is best used for Objects (like `CompareDrawerItem`).
+//    A `type` is best used for specific distinct values (like saying `type` can ONLY be 
+//    the string "add" or "remove").
 interface OptimisticAction {
   type: 'add' | 'remove';
   item: CompareDrawerItem;
@@ -30,6 +46,11 @@ interface CompareDrawerContext {
   maxItems?: number;
 }
 
+// =================================================================================
+// 3. CREATING THE CONTEXT
+// =================================================================================
+//    This creates the global "bucket" where our data will live. It defines that this bucket 
+//    will hold `optimisticItems` (the products), and a function `setOptimisticItems` to update them.
 export const CompareDrawerContext = createContext<CompareDrawerContext>({
   optimisticItems: [],
   // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -37,6 +58,12 @@ export const CompareDrawerContext = createContext<CompareDrawerContext>({
   maxItems: 0,
 });
 
+// =================================================================================
+// 4. THE PROVIDER COMPONENT
+// =================================================================================
+//    The "Provider" wraps around your entire app (or part of it). It actually holds the 
+//    state (using hooks like `useOptimistic`). Any component inside this Provider can 
+//    reach up and grab the data out of the Context.
 export function CompareDrawerProvider({
   children,
   items,
@@ -54,26 +81,33 @@ export function CompareDrawerProvider({
     }
   }, [items.length, maxItems, maxCompareLimitMessage]);
 
+  // 5. `useOptimistic` allows us to update the UI instantly before the server confirms the change
   const [optimisticItems, setOptimisticItems] = useOptimistic(
-    items,
+    items, // The initial state passed from the server
     (state: CompareDrawerItem[], { type, item }: OptimisticAction) => {
+      // Depending on the action type, we update the list
       switch (type) {
         case 'add':
+          // Add the new item and sort the array by ID so it's deterministic
           return [...state, item].sort((a, b) => {
             const numA = Number(a.id);
             const numB = Number(b.id);
 
+            // Sort numerically if IDs are numbers
             if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
               return numA - numB;
             }
 
+            // Put numbers first
             if (!Number.isNaN(numA)) return -1;
             if (!Number.isNaN(numB)) return 1;
 
+            // Alphabetical fallback
             return a.id < b.id ? -1 : 1;
           });
 
         case 'remove':
+          // Filter out the item that is being removed
           return state.filter((i) => i.id !== item.id);
 
         default:
@@ -89,6 +123,12 @@ export function CompareDrawerProvider({
   );
 }
 
+// =================================================================================
+// 6. THE CONSUMER HOOK
+// =================================================================================
+//    We export this custom hook (`useCompareDrawer`). 
+//    Any component in the app can just call `const { optimisticItems } = useCompareDrawer()` 
+//    to instantly get access to the global list of compared products!
 export function useCompareDrawer() {
   return useContext(CompareDrawerContext);
 }
@@ -186,12 +226,17 @@ export function CompareDrawer({
                     aria-label={`${removeLabel} ${item.title}`}
                     className="hover:text-[var(--compare-drawer-dismiss-icon-hover,hsl(var(--foreground))] absolute -right-2.5 -top-2.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--compare-drawer-dismiss-border,hsl(var(--contrast-100)))] bg-[var(--compare-drawer-dismiss-background,hsl(var(--background)))] text-[var(--compare-drawer-dismiss-icon,hsl(var(--contrast-400)))] transition-colors duration-150 hover:border-[var(--compare-drawer-dismiss-border-hover,hsl(var(--contrast-200)))] hover:bg-[var(--compare-drawer-dismiss-background-hover,hsl(var(--contrast-100)))]"
                     onClick={() => {
+                      // Using startTransition to tell React this state update is a lower priority.
+                      // In Stencil, you would have manually updated `localStorage` or a global variable here.
                       startTransition(async () => {
+                        // 1. Instantly remove from UI using Context
                         setOptimisticItems({ type: 'remove', item });
 
+                        // 2. Update the URL parameters so the state is shareable/refreshable
                         await setParam((prev) => {
                           const next = prev?.filter((v) => v !== item.id) ?? [];
 
+                          // If the array is empty, we return null to remove the query param entirely
                           return next.length > 0 ? next : null;
                         });
                       });

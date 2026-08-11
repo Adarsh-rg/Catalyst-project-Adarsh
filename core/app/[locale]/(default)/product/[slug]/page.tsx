@@ -1,3 +1,11 @@
+// =========================================================================
+// 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+// =========================================================================
+// 1. In Stencil, `product.html` handled all product pages.
+//    In Next.js, the folder `[slug]` creates a "Dynamic Route". 
+//    The brackets `[]` mean this folder catches any URL like `/product/my-shirt`.
+//    The word inside, `slug`, becomes a variable available in `params.slug`.
+
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -40,6 +48,11 @@ interface Props {
   searchParams: Promise<SearchParams>;
 }
 
+// =========================================================================
+// 2. SEO METADATA (The Frontmatter Equivalent)
+// =========================================================================
+//    In Stencil, you requested product data in the frontmatter (`product: true`).
+//    Next.js runs this function first to build the <head> tags for SEO before rendering the page.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, locale } = await params;
   const customerAccessToken = await getSessionCustomerAccessToken();
@@ -69,6 +82,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// =========================================================================
+// 3. THE PAGE COMPONENT (Data Fetching)
+// =========================================================================
+//    In Stencil, BigCommerce magically fetched product data and injected it into `{{page}}` context.
+//    In Next.js Server Components (like this one), YOU have to fetch the data yourself.
+//    This is done by writing GraphQL queries (seen in `./page-data.ts`) and calling them here.
 export default async function Product({ params, searchParams }: Props) {
   const { locale, slug } = await params;
   const customerAccessToken = await getSessionCustomerAccessToken();
@@ -93,6 +112,21 @@ export default async function Product({ params, searchParams }: Props) {
     return notFound();
   }
 
+  // =================================================================================
+  // 4. REACT SUSPENSE & "STREAMABLE" VARIABLES
+  // =================================================================================
+  // This is the most confusing part of Catalyst if you are coming from Stencil.
+  // In Stencil, the server WAITS for all data (images, reviews, stock) to load 
+  // from the database before it sends the HTML to the browser.
+  // 
+  // Next.js uses "React Suspense". It says: "Don't wait for everything! Send the 
+  // basic HTML layout to the browser IMMEDIATELY so the user isn't staring at a white screen."
+  // 
+  // `Streamable.from()` takes a network request (like getting inventory) and wraps it 
+  // in a Promise. We pass these Streamable objects down to the UI components. 
+  // The UI components will render a gray "skeleton loader" instantly, and when BigCommerce 
+  // finally responds with the data half a second later, the skeleton is instantly swapped 
+  // out for the real data. This is called "Streaming UI".
   const streamableProduct = Streamable.from(async () => {
     const options = await searchParams;
 
@@ -467,6 +501,12 @@ export default async function Product({ params, searchParams }: Props) {
               content: (
                 <div className="prose @container">
                   <dl className="flex flex-col gap-4">
+// =================================================================================
+                    // 🎓 JAVASCRIPT TIP: ARRAY `.map()`
+                    // =================================================================================
+                    //    In Stencil, to loop over a list of items and print HTML, you used `{{#each specifications}}`.
+                    //    In React, we use the standard Javascript array function `.map()`.
+                    //    It says: "For every `field` in the `specifications` array, return this chunk of JSX."
                     {specifications.map((field, index) => (
                       <div className="grid grid-cols-1 gap-2 @lg:grid-cols-2" key={index}>
                         <dt>
@@ -549,7 +589,23 @@ export default async function Product({ params, searchParams }: Props) {
     return { email: session?.user?.email ?? '', name: obfuscatedName };
   });
 
+  // =======================================================================
+  // 5. RENDERING THE UI (Passing data as Props)
+  // =======================================================================
+  //    We don't write the actual HTML in this file. 
+  //    Instead, we pass this data as "props" into the `<ProductDetail>` React component.
+  //    Look closely below: `price: streamablePrices`. We are handing the UI component
+  //    the Promise, NOT the final price text. The UI component knows how to handle the stream.
   return (
+    // =======================================================================
+    // 🎓 REACT TIP: FRAGMENTS (`<>`)
+    // =======================================================================
+    //    In React, a component must return exactly ONE "parent" HTML tag. 
+    //    If we want to return `<ProductDetail>`, `<FeaturedProductCarousel>`, 
+    //    and `<WishlistButtonForm>` side-by-side, we would normally have to wrap 
+    //    them all in a giant `<div>`. 
+    //    To avoid adding useless `<div>`s to our HTML, React gives us Fragments (`<>...</>`).
+    //    It groups the elements together for React, but disappears in the final HTML!
     <>
       <ProductAnalyticsProvider data={streamableAnalyticsData}>
         <ProductDetail

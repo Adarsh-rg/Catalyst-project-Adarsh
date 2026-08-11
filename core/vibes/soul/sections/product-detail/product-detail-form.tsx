@@ -1,5 +1,16 @@
 'use client';
 
+// =================================================================================
+// 🎓 DEEP REACT: ADVANCED CLIENT STATE (Replacing Form JavaScript)
+// =================================================================================
+// In Stencil, handling a complex product page (with swatches, sizing, custom text) 
+// required massive JavaScript files listening to `change` events on every input, 
+// manually updating hidden `<input>` fields, and re-calculating the price.
+// 
+// In React, this is a Client Component (`'use client'`). It uses advanced Hooks 
+// (`useActionState`, `useForm`) to automatically manage all the user's selections 
+// and update the UI instantly without needing custom event listeners!
+
 import {
   FieldMetadata,
   FormProvider,
@@ -59,6 +70,13 @@ export interface BackorderDisplayData {
   backorderMessage: string | null;
 }
 
+// =================================================================================
+// 🎓 TYPESCRIPT TIP: Generics `<F extends Field>`
+// =================================================================================
+// Generics (the `<F>`) are like variables for types. 
+// Here, we say "This form accepts an array of `fields`, and they must match the 
+// `Field` type we defined, but they can be any specific sub-type of Field."
+// This allows TypeScript to know exactly what kind of fields are passed in!
 export interface ProductDetailFormProps<F extends Field> {
   fields: F[];
   action: ProductDetailFormAction<F>;
@@ -94,52 +112,56 @@ export function ProductDetailForm<F extends Field>({
   stockDisplayData,
   backorderDisplayData,
 }: ProductDetailFormProps<F>) {
+  // =================================================================================
+  // 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+  // =================================================================================
   const router = useRouter();
   const pathname = usePathname();
   const events = useEvents();
   const t = useTranslations('Product.ProductDetails');
 
+  // =================================================================================
+  // 1. URL STATE SYNCHRONIZATION (Replacing manual JS DOM logic)
+  // =================================================================================
+  //    In Stencil, selecting a size (e.g. "Large") just changed a hidden input value.
+  //    If a user refreshed the page, they lost all their variant selections because 
+  //    state was trapped in the DOM.
+  //
+  //    Here, we use `useQueryStates` (from the `nuqs` library) to automatically sync 
+  //    the user's selections directly into the URL (e.g. `?size=Large`). 
+  //    This means users can share a link to a specific variant, and the page will 
+  //    load with those options pre-selected instantly!
   const searchParams = fields.reduce<Record<string, typeof parseAsString>>((acc, field) => {
     return field.persist === true ? { ...acc, [field.name]: parseAsString } : acc;
   }, {});
 
   const [params] = useQueryStates(searchParams, { shallow: false });
 
+  // 2. Prefetching data on hover
+  //    When a user hovers over a swatch (like a color), we can intercept that event
+  //    and instantly pre-load the new product image/price in the background!
   const onPrefetch = (fieldName: string, value: string) => {
     if (prefetch) {
       const serialize = createSerializer(searchParams);
-
       const newUrl = serialize(pathname, { ...params, [fieldName]: value });
-
       router.prefetch(newUrl);
     }
   };
 
+  // 3. Setting default values for the form based on what is in the URL.
   const defaultValue = fields.reduce<{
     [Key in keyof SchemaRawShape]?: z.infer<SchemaRawShape[Key]>;
   }>(
     (acc, field) => {
-      // Checkbox field has to be handled separately because we want to convert checked or unchecked value to true or undefined respectively.
-      // This is because the form expects a boolean value, but we want to store the checked or unchecked value in the query params.
+      // Checkbox fields require special true/undefined parsing
       if (field.type === 'checkbox') {
         if (params[field.name] === field.checkedValue) {
-          return {
-            ...acc,
-            [field.name]: 'true',
-          };
+          return { ...acc, [field.name]: 'true' };
         }
-
         if (params[field.name] === field.uncheckedValue) {
-          return {
-            ...acc,
-            [field.name]: undefined,
-          };
+          return { ...acc, [field.name]: undefined };
         }
-
-        return {
-          ...acc,
-          [field.name]: field.defaultValue, // Default value is either 'true' or undefined
-        };
+        return { ...acc, [field.name]: field.defaultValue };
       }
 
       return {
@@ -150,23 +172,48 @@ export function ProductDetailForm<F extends Field>({
     { quantity: minQuantity ?? 1 },
   );
 
+  // =================================================================================
+  // 4. HANDLING THE SERVER ACTION RESPONSE (`useActionState`)
+  // =================================================================================
+  //    In Stencil, you made an AJAX request (`$.post('/cart')`) and wrote a `.then()` 
+  //    block to show a success message.
+  //    In React 19, `useActionState` watches the form submission automatically. 
+  //    When the backend Server Action finishes, this hook updates `lastResult` with 
+  //    the success or error payload!
   const [{ lastResult, successMessage }, formAction] = useActionState(action, {
     fields,
     lastResult: null,
   });
 
+  // =================================================================================
+  // 🎓 REACT TIP: `useEffect` HOOK
+  // =================================================================================
+  //    In Stencil, you might use `$(document).ready()` to wait for the page to load 
+  //    before running some code. 
+  //    In React, `useEffect` says: "Run this chunk of code ONLY if the variables inside 
+  //    the array at the bottom change." 
+  //    Here, it watches `lastResult`. If `lastResult` changes to "success" (meaning the 
+  //    server just finished adding the item to the cart), it triggers a green toast popup 
+  //    and tells Next.js to purge the cached Cart data!
   useEffect(() => {
     if (lastResult?.status === 'success') {
       toast.success(successMessage);
 
       startTransition(async () => {
-        // This is needed to refresh the Data Cache after the product has been added to the cart.
-        // The cart id is not picked up after the first time the cart is created/updated.
+        // Refresh the Data Cache after the product has been added to the cart
         await revalidateCart();
       });
     }
   }, [lastResult, successMessage, router]);
 
+  // =================================================================================
+  // 6. MANAGING FORM STATE (`useForm`)
+  // =================================================================================
+  //    In Stencil, you wrote massive `add-to-cart.js` files with manual `addEventListener('change')` 
+  //    calls to update validation UI. 
+  //    With `useForm` (from `@conform-to/react`), React does it declaratively. The Zod schema 
+  //    defines the rules, and React automatically updates the red error borders on the inputs 
+  //    if the user forgets to select a required option.
   const [form, formFields] = useForm({
     lastResult,
     constraint: getZodConstraint(schema(fields, minQuantity, maxQuantity)),
@@ -177,8 +224,9 @@ export function ProductDetailForm<F extends Field>({
       event.preventDefault();
 
       startTransition(() => {
+        // Trigger the backend Server Action
         formAction(formData);
-
+        // Trigger analytics event
         events.onAddToCart?.(formData);
       });
     },
@@ -188,6 +236,17 @@ export function ProductDetailForm<F extends Field>({
     shouldRevalidate: 'onInput',
   });
 
+  // =================================================================================
+  // 7. CHECKING INVENTORY DYNAMICALLY
+  // =================================================================================
+  //    In Stencil, inventory messages (`{{#if out_of_stock_message}}`) were baked into 
+  //    the HTML templates by the backend when the page loaded. 
+  //    If a user changed variant combinations, Stencil used complex JavaScript to 
+  //    re-render the text node in the DOM.
+  //
+  //    Here, we use `useMemo`. This hook automatically re-calculates the backorder 
+  //    messages instantly anytime the user types a new number into the `quantity` box 
+  //    or selects a new variant!
   const backorderMessages = useMemo(() => {
     const {
       availableForBackorder,
@@ -229,10 +288,27 @@ export function ProductDetailForm<F extends Field>({
 
   const quantityControl = useInputControl(formFields.quantity);
 
+  // =================================================================================
+  // 8. RENDERING THE FORM
+  // =================================================================================
+  //    In Stencil, you wrote massive Handlebars files looping over `{{#each product.options}}`.
+  //    Here, we map over the `fields` array passed from the parent and render 
+  //    `<FormField>` components.
+  //
+  //    Notice `<FormProvider context={form.context}>`: This is a React Context Provider.
+  //    It acts like a global variable for this specific form, allowing deeply nested 
+  //    components (like our custom inputs) to instantly know if the form has validation errors.
   return (
     <FormProvider context={form.context}>
+      {/* Hidden input required by @conform-to/react to track state internally */}
       <FormStateInput />
+      
+      {/* 
+        The main form element. `getFormProps` attaches all the ARIA roles and validation 
+        attributes automatically. `action={formAction}` securely hooks it to the backend.
+      */}
       <form {...getFormProps(form)} action={formAction}>
+        {/* Pass the product ID as a hidden field so the server knows what to add */}
         <input name="id" type="hidden" value={productId} />
         <div className="space-y-6 pb-8">
           {fields.map((field) => {
@@ -322,13 +398,22 @@ export function ProductDetailForm<F extends Field>({
   );
 }
 
+// =================================================================================
+// 4. THE SUBMIT BUTTON (React useFormStatus)
+// =================================================================================
+// This tiny component is magical. Because it sits inside the `<form>`, it can use 
+// the `useFormStatus()` hook to instantly know if the form is currently submitting 
+// to the server. If it is (`pending === true`), we disable the button and show a spinner.
 function SubmitButton({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
+  // Extract the pending state from React DOM's useFormStatus hook
   const { pending } = useFormStatus();
 
   return (
     <Button
       className="w-auto @xl:w-56"
+      // Disable the button if explicitly told to, or if currently submitting
       disabled={disabled}
+      // Show a loading spinner when the form action is in flight
       loading={pending}
       size="medium"
       type="submit"
@@ -371,11 +456,18 @@ function FormField({
   );
 
   const handleOnOptionMouseEnter = (value: string) => {
+    // When a user hovers over a swatch, prefetch the image/price for that variant!
     if (field.persist === true) {
       onPrefetch(field.name, value);
     }
   };
 
+  // =================================================================================
+  // 5. DYNAMIC FIELD RENDERING
+  // =================================================================================
+  // Instead of hardcoding HTML for every type of input, we have a switch statement.
+  // It looks at the `field.type` coming from BigCommerce (e.g., is this a radio button, 
+  // a dropdown, a text area?) and dynamically renders the correct React Component.
   switch (field.type) {
     case 'number':
       return (

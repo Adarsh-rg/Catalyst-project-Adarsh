@@ -1,3 +1,11 @@
+// =========================================================================
+// 🎓 DEEP DIVE: COMPARING STENCIL TO REACT (Line-by-Line)
+// =========================================================================
+// 1. In Stencil, you extracted repeating UI elements into components (e.g. `{{> components/common/header}}`).
+//    In Catalyst, you extract them into React Functional Components.
+//    This Header file is responsible for fetching menu and cart data via GraphQL 
+//    and passing it down to the actual visual `<HeaderSection>` component.
+
 import { getLocale, getTranslations } from 'next-intl/server';
 import { cache } from 'react';
 
@@ -44,6 +52,13 @@ const getCartCount = cache(async (cartId: string, customerAccessToken?: string) 
     },
   });
 
+  // =========================================================================
+  // 🎓 JAVASCRIPT TIP: OPTIONAL CHAINING (`?.`)
+  // =========================================================================
+  //    What happens if `response.data.site.cart` is undefined (they have no cart)?
+  //    Normally, trying to read `.lineItems` on `undefined` causes a fatal app crash.
+  //    The question mark (`?.`) says: "If cart is null/undefined, STOP here and just return undefined. Don't crash!"
+  //    The `?? null` at the end says: "If the final result was undefined, return `null` instead."
   return response.data.site.cart?.lineItems.totalQuantity ?? null;
 });
 
@@ -70,6 +85,11 @@ const getHeaderData = cache(async () => {
   return readFragment(HeaderFragment, response).site;
 });
 
+// =========================================================================
+// 2. THE COMPONENT FUNCTION & DATA FETCHING
+// =========================================================================
+//    Notice how we are fetching data directly inside this Component using `await`.
+//    In Stencil, you couldn't do this inside a partial; you had to rely on the page context.
 export const Header = async () => {
   const t = await getTranslations('Components.Header');
   const locale = await getLocale();
@@ -85,13 +105,13 @@ export const Header = async () => {
 
   const currencies = data.currencies.edges
     ? data.currencies.edges
-        // only show transactional currencies for now until cart prices can be rendered in display currencies
-        .filter(({ node }) => node.isTransactional)
-        .map(({ node }) => ({
-          id: node.code,
-          label: node.code,
-          isDefault: node.isDefault,
-        }))
+      // only show transactional currencies for now until cart prices can be rendered in display currencies
+      .filter(({ node }) => node.isTransactional)
+      .map(({ node }) => ({
+        id: node.code,
+        label: node.code,
+        isDefault: node.isDefault,
+      }))
     : [];
 
   const streamableLinks = Streamable.from(async () => {
@@ -153,6 +173,16 @@ export const Header = async () => {
     return currencyCode ?? defaultCurrency?.id;
   });
 
+  // =======================================================================
+  // 3. REACT PROPS (Replacing Handlebars Variables)
+  // =======================================================================
+  // In Stencil, to pass a logo to a component, you'd do:
+  // `{{> components/common/header logo=theme_settings.logo}}`
+  // 
+  // In React, you use "Props". The `<HeaderSection>` component is a standalone piece 
+  // of UI (like a partial). We pass data into it just like HTML attributes.
+  // Notice below how `logo`, `cartCount`, and `links` are passed explicitly into the 
+  // `navigation` Prop object. This makes it impossible to "accidentally" miss data.
   return (
     <HeaderSection
       navigation={{
