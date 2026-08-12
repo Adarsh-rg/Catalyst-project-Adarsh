@@ -501,12 +501,14 @@ export default async function Product({ params, searchParams }: Props) {
               content: (
                 <div className="prose @container">
                   <dl className="flex flex-col gap-4">
-// =================================================================================
-                    // 🎓 JAVASCRIPT TIP: ARRAY `.map()`
-                    // =================================================================================
-                    //    In Stencil, to loop over a list of items and print HTML, you used `{{#each specifications}}`.
-                    //    In React, we use the standard Javascript array function `.map()`.
-                    //    It says: "For every `field` in the `specifications` array, return this chunk of JSX."
+                    {/* 
+                      =================================================================================
+                      🎓 JAVASCRIPT TIP: ARRAY `.map()`
+                      =================================================================================
+                      In Stencil, to loop over a list of items and print HTML, you used `{{#each specifications}}`.
+                      In React, we use the standard Javascript array function `.map()`.
+                      It says: "For every `field` in the `specifications` array, return this chunk of JSX."
+                    */}
                     {specifications.map((field, index) => (
                       <div className="grid grid-cols-1 gap-2 @lg:grid-cols-2" key={index}>
                         <dt>
