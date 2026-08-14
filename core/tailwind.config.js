@@ -4,6 +4,7 @@ const config = {
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './vibes/**/*.{ts,tsx}',
+    './lib/makeswift/**/*.{ts,tsx}',
     '!./node_modules/**', // Exclude everything in node_modules to speed up builds
   ],
   theme: {
