@@ -61,7 +61,7 @@ export function FeaturedBrandsWidget({
   return (
     // 🎓 DYNAMIC INLINE STYLES: 
     // We use `style={{ backgroundColor }}` so the user's custom color from the CMS overrides the default `bg-white`.
-    <section 
+    <section
       className="w-full py-16 md:py-20 bg-white overflow-hidden flex flex-col"
       style={backgroundColor ? { backgroundColor } : undefined}
     >
@@ -79,23 +79,26 @@ export function FeaturedBrandsWidget({
           animation: infinite-scroll-half var(--marquee-speed, 30s) linear infinite;
         }
       `}</style>
-      
+
       {/* Header Area */}
-      <div className="max-w-7xl mx-auto w-full px-6 flex flex-col md:flex-row md:justify-between md:items-end mb-14 gap-6">
-        <h2 
+      <div
+        className="max-w-7xl mx-auto w-full px-6 flex flex-col md:flex-row md:items-end mb-14 gap-6"
+        style={{ justifyContent: "space-between" }}
+      >
+        <h2
           className={`${headingSizeClass} font-bold text-[#1f2937] tracking-tight leading-none transition-colors duration-300`}
           style={headingColor ? { color: headingColor } : undefined}
         >
           {heading}
         </h2>
-        
+
         {/* 
           🎓 CONDITIONAL RENDERING FOR LINKS:
           If the user provided a link in the CMS, render a Next.js <Link>.
           Otherwise, render a standard <span> tag.
         */}
         {linkUrl?.href ? (
-          <Link 
+          <Link
             href={linkUrl.href}
             target={linkUrl.target}
             className="text-[13px] font-bold text-[#1f2937] hover:opacity-70 transition-all uppercase tracking-[0.08em] flex items-center mb-1"
@@ -104,7 +107,7 @@ export function FeaturedBrandsWidget({
             {linkText}
           </Link>
         ) : (
-          <span 
+          <span
             className="text-[13px] font-bold text-[#1f2937] uppercase tracking-[0.08em] flex items-center mb-1 cursor-pointer hover:opacity-70 transition-all"
             style={linkColor ? { color: linkColor } : undefined}
           >
@@ -114,29 +117,29 @@ export function FeaturedBrandsWidget({
       </div>
 
       {/* Marquee Area */}
-      <div 
+      <div
         className="w-full overflow-hidden flex"
         // 🎓 CSS VARIABLES VIA REACT: We pass the speed down to our custom CSS via a variable!
         style={{ '--marquee-speed': `${animationSpeed}s` } as React.CSSProperties}
       >
         <div className="flex animate-infinite-scroll-half w-max items-center hover:[animation-play-state:paused]">
           {marqueeLogos.map((logo, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               // 🎓 INLINE GAP CONTROL: Overriding the default mx-14 using the user's custom gap choice
               className="flex-shrink-0 flex items-center justify-center cursor-pointer transition-transform hover:scale-105 duration-300"
               style={{ paddingLeft: `${logoGap}px`, paddingRight: `${logoGap}px` }}
             >
               {logo.image ? (
-                <img 
-                  src={logo.image} 
-                  alt={logo.altText || `Brand ${index + 1}`} 
+                <img
+                  src={logo.image}
+                  alt={logo.altText || `Brand ${index + 1}`}
                   // 🎓 DYNAMIC IMAGE SIZING: The height is controlled by CMS, width auto-scales!
                   style={{ height: `${logoHeight}px`, width: 'auto' }}
                   className="object-contain"
                 />
               ) : (
-                <div 
+                <div
                   className="bg-slate-100 flex items-center justify-center text-slate-400 text-sm font-medium rounded"
                   style={{ height: `${logoHeight}px`, width: `${logoHeight * 2.5}px` }}
                 >

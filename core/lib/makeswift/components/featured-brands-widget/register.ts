@@ -12,9 +12,9 @@ runtime.registerComponent(FeaturedBrandsWidget, {
   label: 'Featured Brands',
   props: {
     // 🎨 SECTION: Heading & Typography
-    heading: TextInput({ 
-      label: 'Heading Text', 
-      defaultValue: 'Featured Brands' 
+    heading: TextInput({
+      label: 'Heading Text',
+      defaultValue: 'Featured Brands'
     }),
     headingSize: Select({
       label: 'Heading Size',
@@ -29,11 +29,11 @@ runtime.registerComponent(FeaturedBrandsWidget, {
     headingColor: Color({
       label: 'Heading Color (Optional)',
     }),
-    
+
     // 🔗 SECTION: Link
-    linkText: TextInput({ 
-      label: 'Link Text', 
-      defaultValue: 'VIEW ALL BRANDS \u2192' 
+    linkText: TextInput({
+      label: 'Link Text',
+      defaultValue: 'VIEW ALL BRANDS \u2192'
     }),
     linkColor: Color({
       label: 'Link Color (Optional)',
@@ -41,7 +41,7 @@ runtime.registerComponent(FeaturedBrandsWidget, {
     linkUrl: Link({
       label: 'Link URL',
     }),
-    
+
     // ⚙️ SECTION: Widget Settings (Background & Animation)
     backgroundColor: Color({
       label: 'Background Color (Optional)',
@@ -53,11 +53,11 @@ runtime.registerComponent(FeaturedBrandsWidget, {
       max: 120,
       step: 1,
     }),
-    
+
     // 📏 SECTION: Logo Dimensions & Spacing
     logoHeight: Number({
       label: 'Logo Max Height (px)',
-      defaultValue: 64, // 64px is standard for elegant logos
+      defaultValue: 120, // 64px is standard for elegant logos
       min: 24,
       max: 200,
       step: 4,
@@ -80,7 +80,7 @@ runtime.registerComponent(FeaturedBrandsWidget, {
           image: Image({
             label: 'Image',
           }),
-          altText: TextInput({ 
+          altText: TextInput({
             label: 'Alt Text (For accessibility)',
             defaultValue: 'Brand Logo'
           }),
